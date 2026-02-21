@@ -440,6 +440,38 @@
   .text-amber { color: var(--amber); }
   .mono { font-family: 'JetBrains Mono', monospace; }
   select option { background: var(--bg3); }
+
+  /* ─── AI WIZARD ─── */
+  .wizard-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 16px;
+  }
+  .wizard-preview {
+    min-height: 220px;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-dim);
+    background: var(--bg3);
+    overflow: hidden;
+  }
+  .wizard-preview img { max-width: 100%; max-height: 340px; display:block; }
+  .wizard-note {
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.6;
+    margin-top: 10px;
+  }
+  .wizard-status {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--blue);
+    margin-top: 8px;
+  }
+
   .empty-state {
     text-align: center;
     padding: 40px;
@@ -451,6 +483,7 @@
     .charts-grid { grid-template-columns: 1fr; }
     .stats-row { grid-template-columns: 1fr 1fr; }
     .form-header { grid-template-columns: 1fr; }
+    .wizard-grid { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -518,6 +551,38 @@
       <p>4. Podatke spremi jednom tjedno (npr. svaki petak)</p>
       <p>5. Brzi unos: <span class="mono">Ctrl/Cmd + S</span> sprema, <span class="mono">Alt + R</span> resetira formu</p>
       <p>6. Clipboard import podržava retke: <span class="mono">Sektor 1.2 3.4 -2.1 5.0 -4.2 2.7</span> (ili format s dodatnim kolonama)</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">AI Wizard – finviz screenshot → auto unos</div>
+    <div class="wizard-grid">
+      <div>
+        <div class="btn-row" style="margin-bottom:10px">
+          <button class="btn btn-secondary btn-sm" onclick="openFinvizSectors()">Otvori Finviz Sectors</button>
+          <button class="btn btn-secondary btn-sm" onclick="captureFinvizScreen()">Snimi screenshot taba</button>
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('wizardFile').click()">Učitaj screenshot</button>
+        </div>
+        <input type="file" id="wizardFile" accept="image/*" style="display:none" onchange="handleWizardFile(event)">
+        <div class="wizard-preview" id="wizardPreview">Nema učitanog screenshota</div>
+      </div>
+      <div>
+        <div class="form-label">Groq API key</div>
+        <input type="password" id="groqApiKey" placeholder="gsk_..." autocomplete="off">
+        <div class="form-label" style="margin-top:12px">Model (vision)</div>
+        <select id="groqModel">
+          <option value="llama-3.2-90b-vision-preview">llama-3.2-90b-vision-preview</option>
+          <option value="meta-llama/llama-4-scout-17b-16e-instruct">llama-4-scout-17b-16e-instruct</option>
+        </select>
+        <div class="btn-row" style="margin-top:14px">
+          <button class="btn btn-primary" onclick="runAiWizard()">AI Wizard: preuzmi podatke</button>
+        </div>
+        <div class="wizard-status" id="wizardStatus"></div>
+        <div class="wizard-note">
+          1) Otvori Finviz sectors tab. 2) Snimi cijeli ekran tab-a ili učitaj sliku.
+          3) Pokreni AI Wizard – podaci će biti upisani u formu.
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -704,6 +769,7 @@ let sortRankBy = 'tjedno';
 let sortDir = -1;
 let vizPeriod = 'tjedno';
 let charts = {};
+let wizardImageDataUrl = null;
 
 // ═══════════════════════════════════════════════════════
 // STORAGE
@@ -728,6 +794,7 @@ function init() {
   buildSectorGrid();
   buildSectorSelects();
   bindShortcuts();
+  loadWizardSettings();
   updateStats();
   updateClock();
   setInterval(updateClock, 1000);
@@ -918,6 +985,172 @@ function bindShortcuts() {
   });
 }
 
+function loadWizardSettings() {
+  const keyInput = document.getElementById('groqApiKey');
+  const saved = localStorage.getItem('groq_api_key');
+  if (saved && keyInput) keyInput.value = saved;
+  keyInput?.addEventListener('change', () => {
+    localStorage.setItem('groq_api_key', keyInput.value.trim());
+  });
+}
+
+function openFinvizSectors() {
+  window.open('https://finviz.com/groups.ashx?g=sector&v=140&o=-change', '_blank');
+}
+
+async function captureFinvizScreen() {
+  if (!navigator.mediaDevices?.getDisplayMedia) {
+    showToast('Screen capture nije podržan u ovom browseru.', true);
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getDisplayMedia({ video: { displaySurface: 'browser' }, audio: false });
+    const track = stream.getVideoTracks()[0];
+    const imageCapture = new ImageCapture(track);
+    const bitmap = await imageCapture.grabFrame();
+    const canvas = document.createElement('canvas');
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(bitmap, 0, 0);
+    wizardImageDataUrl = canvas.toDataURL('image/png');
+    track.stop();
+    renderWizardPreview();
+    setWizardStatus('Screenshot snimljen. Spremno za AI obradu.');
+  } catch (err) {
+    showToast('Snimanje ekrana prekinuto ili nije dopušteno.', true);
+  }
+}
+
+function handleWizardFile(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    wizardImageDataUrl = e.target.result;
+    renderWizardPreview();
+    setWizardStatus('Screenshot učitan. Spremno za AI obradu.');
+  };
+  reader.readAsDataURL(file);
+  event.target.value = '';
+}
+
+function renderWizardPreview() {
+  const el = document.getElementById('wizardPreview');
+  if (!wizardImageDataUrl) {
+    el.textContent = 'Nema učitanog screenshota';
+    return;
+  }
+  el.innerHTML = '';
+  const img = document.createElement('img');
+  img.src = wizardImageDataUrl;
+  img.alt = 'Finviz screenshot';
+  el.appendChild(img);
+}
+
+function setWizardStatus(msg, error = false) {
+  const el = document.getElementById('wizardStatus');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = error ? 'var(--red)' : 'var(--blue)';
+}
+
+async function runAiWizard() {
+  const key = document.getElementById('groqApiKey')?.value?.trim();
+  const model = document.getElementById('groqModel')?.value;
+
+  if (!wizardImageDataUrl) {
+    showToast('Prvo snimi ili učitaj screenshot.', true);
+    return;
+  }
+  if (!key) {
+    showToast('Unesi Groq API key.', true);
+    return;
+  }
+
+  localStorage.setItem('groq_api_key', key);
+  setWizardStatus('AI obrada u tijeku...');
+
+  const prompt = `You are extracting sector performance data from a Finviz sectors screenshot. Return ONLY valid JSON with this exact shape:
+{
+  "Basic Materials": {"tjedno": number|null, "miesecno": number|null, "tromj": number|null, "polugod": number|null, "godisnje": number|null, "ytd": number|null},
+  "Communication Services": {...},
+  "Consumer Cyclical": {...},
+  "Consumer Defensive": {...},
+  "Energy": {...},
+  "Financial": {...},
+  "Healthcare": {...},
+  "Industrials": {...},
+  "Real Estate": {...},
+  "Technology": {...},
+  "Utilities": {...}
+}
+Use percentages as plain numbers (e.g. -2.31, 5.2). If missing, use null. No markdown.`;
+
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${key}`
+      },
+      body: JSON.stringify({
+        model,
+        temperature: 0,
+        response_format: { type: 'json_object' },
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              { type: 'image_url', image_url: { url: wizardImageDataUrl } }
+            ]
+          }
+        ]
+      })
+    });
+
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(`API greška ${res.status}: ${txt.slice(0, 180)}`);
+    }
+
+    const data = await res.json();
+    const content = data?.choices?.[0]?.message?.content;
+    const parsed = parseWizardJson(content);
+    applyWizardData(parsed);
+    setWizardStatus('AI uspješno popunio sektorske vrijednosti.');
+    showToast('AI Wizard: podaci preuzeti i upisani u formu.');
+  } catch (err) {
+    setWizardStatus('AI obrada nije uspjela: ' + err.message, true);
+    showToast('AI Wizard greška: ' + err.message, true);
+  }
+}
+
+function parseWizardJson(content) {
+  if (typeof content !== 'string') throw new Error('Prazan odgovor modela.');
+  let txt = content.trim();
+  if (txt.startsWith('```')) {
+    txt = txt.replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
+  }
+  const parsed = JSON.parse(txt);
+  if (!parsed || typeof parsed !== 'object') throw new Error('Neispravan JSON odgovor.');
+  return parsed;
+}
+
+function applyWizardData(payload) {
+  SEKTORI.forEach(sektor => {
+    const sec = payload[sektor] || {};
+    PERIODI.forEach(period => {
+      const el = document.getElementById(`inp_${sanitize(sektor)}_${period.key}`);
+      if (!el) return;
+      const value = sec[period.key];
+      el.value = Number.isFinite(Number(value)) ? Number(value).toFixed(2) : '';
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════
 // STATS (homepage)
 // ═══════════════════════════════════════════════════════
