@@ -1,0 +1,1392 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rotacija Sektora</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080c10;
+    --bg2: #0d1117;
+    --bg3: #111820;
+    --bg4: #161e28;
+    --border: #1e2a38;
+    --amber: #f59e0b;
+    --amber-dim: #92600a;
+    --green: #22d3a0;
+    --green-dim: #0f5e47;
+    --red: #f43f5e;
+    --red-dim: #7a1d2e;
+    --blue: #38bdf8;
+    --text: #cbd5e1;
+    --text-dim: #475569;
+    --text-bright: #f1f5f9;
+    --signal: #fb923c;
+    --signal-bg: rgba(251,146,60,0.1);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 15px;
+    min-height: 100vh;
+  }
+  /* ─── HEADER ─── */
+  header {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--amber);
+    letter-spacing: 2px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .logo span { color: var(--text-dim); font-size: 11px; font-weight: 300; letter-spacing: 1px; }
+  .header-time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  /* ─── NAV ─── */
+  nav {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex;
+    gap: 2px;
+  }
+  .nav-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 12px 20px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  .nav-btn:hover { color: var(--text); }
+  .nav-btn.active { color: var(--amber); border-bottom-color: var(--amber); }
+  /* ─── MAIN ─── */
+  main { padding: 24px; max-width: 1600px; margin: 0 auto; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  /* ─── CARDS ─── */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .card-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title::before {
+    content: '';
+    display: block;
+    width: 3px;
+    height: 14px;
+    background: var(--amber);
+    border-radius: 2px;
+  }
+  /* ─── FORM GRID ─── */
+  .form-header {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+    align-items: end;
+  }
+  .form-label {
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  input[type="date"], input[type="text"], input[type="number"], select {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-bright);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    padding: 8px 12px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input:focus, select:focus { border-color: var(--amber); }
+  /* ─── SECTOR GRID ─── */
+  .sector-grid {
+    display: grid;
+    grid-template-columns: 180px repeat(6, 1fr);
+    gap: 4px;
+    margin-bottom: 20px;
+  }
+  .grid-header {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    text-align: center;
+    padding: 6px 4px;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .grid-header:first-child { text-align: left; }
+  .sector-name {
+    font-size: 12px;
+    color: var(--text);
+    padding: 6px 4px;
+    display: flex;
+    align-items: center;
+    font-weight: 500;
+  }
+  .sector-input {
+    position: relative;
+  }
+  .sector-input input {
+    text-align: right;
+    padding: 6px 20px 6px 8px;
+    font-size: 13px;
+  }
+  .sector-input::after {
+    content: '%';
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-dim);
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    pointer-events: none;
+  }
+  .sector-row { display: contents; }
+  .sector-row:hover .sector-name { color: var(--amber); }
+  /* ─── BUTTONS ─── */
+  .btn {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 10px 24px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-primary {
+    background: var(--amber);
+    color: #000;
+  }
+  .btn-primary:hover { background: #fbbf24; }
+  .btn-danger {
+    background: transparent;
+    color: var(--red);
+    border: 1px solid var(--red-dim);
+  }
+  .btn-danger:hover { background: var(--red-dim); }
+  .btn-secondary {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { border-color: var(--text-dim); }
+  .btn-sm { padding: 5px 12px; font-size: 11px; }
+  .btn-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  /* ─── TABLES ─── */
+  .table-wrapper { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+  th {
+    background: var(--bg3);
+    color: var(--text-dim);
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 10px 12px;
+    text-align: right;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 1px solid var(--border);
+    transition: color 0.2s;
+  }
+  th:first-child { text-align: left; }
+  th:hover { color: var(--amber); }
+  th.sorted { color: var(--amber); }
+  th .sort-arrow { margin-left: 4px; }
+  td {
+    padding: 9px 12px;
+    text-align: right;
+    border-bottom: 1px solid rgba(30,42,56,0.5);
+    white-space: nowrap;
+  }
+  td:first-child { text-align: left; color: var(--text-bright); font-weight: 500; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  /* ─── VALUE COLORS ─── */
+  .val-pos2 { color: #10b981; font-weight: 600; }
+  .val-pos1 { color: #34d399; }
+  .val-neg1 { color: #fb7185; }
+  .val-neg2 { color: #f43f5e; font-weight: 600; }
+  .val-zero { color: var(--text-dim); }
+  /* ─── RANK BADGE ─── */
+  .rank {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 700;
+    margin-right: 8px;
+  }
+  .rank-1 { background: #7c5c00; color: #fbbf24; }
+  .rank-2 { background: #4a5568; color: #94a3b8; }
+  .rank-3 { background: #3d2f1a; color: #c2956c; }
+  /* ─── SIGNAL ─── */
+  .signal-row td { background: var(--signal-bg) !important; }
+  .signal-badge {
+    display: inline-block;
+    background: var(--signal-bg);
+    color: var(--signal);
+    border: 1px solid rgba(251,146,60,0.3);
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    letter-spacing: 1px;
+    font-weight: 600;
+    margin-left: 8px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  /* ─── CHARTS ─── */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .chart-container { position: relative; height: 320px; }
+  .chart-container-wide { position: relative; height: 400px; }
+  /* ─── HISTORY ─── */
+  .history-item {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .history-item:hover { border-color: var(--amber); }
+  .history-item.selected { border-color: var(--amber); background: rgba(245,158,11,0.05); }
+  .history-date {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--amber);
+  }
+  .history-label { font-size: 14px; font-weight: 600; color: var(--text-bright); }
+  /* ─── STATS ─── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .stat-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+    text-align: center;
+  }
+  .stat-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--amber);
+  }
+  .stat-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+  /* ─── TOAST ─── */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--bg4);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--green);
+    padding: 14px 20px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--text-bright);
+    z-index: 1000;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.error { border-left-color: var(--red); }
+  /* ─── PERIOD SELECTOR ─── */
+  .period-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .period-tab {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 5px 14px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .period-tab:hover { color: var(--text); }
+  .period-tab.active { background: var(--amber-dim); color: var(--amber); border-color: var(--amber-dim); }
+  /* ─── HEATMAP ─── */
+  .heatmap {
+    display: grid;
+    grid-template-columns: 180px repeat(6, 1fr);
+    gap: 3px;
+    margin-bottom: 16px;
+  }
+  .hm-header {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    padding: 6px;
+    text-align: center;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .hm-label {
+    font-size: 12px;
+    padding: 8px 6px;
+    display: flex;
+    align-items: center;
+    font-weight: 500;
+    color: var(--text);
+  }
+  .hm-cell {
+    border-radius: 3px;
+    padding: 8px 4px;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    transition: opacity 0.2s;
+  }
+  .hm-cell:hover { opacity: 0.8; cursor: default; }
+  /* ─── SCROLLBAR ─── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+  /* ─── MISC ─── */
+  .flex { display: flex; }
+  .gap-12 { gap: 12px; }
+  .mb-16 { margin-bottom: 16px; }
+  .text-dim { color: var(--text-dim); }
+  .text-amber { color: var(--amber); }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  select option { background: var(--bg3); }
+  .empty-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+  @media (max-width: 900px) {
+    .charts-grid { grid-template-columns: 1fr; }
+    .stats-row { grid-template-columns: 1fr 1fr; }
+    .form-header { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    ▣ ROTACIJA SEKTORA
+    <span>market sector tracker</span>
+  </div>
+  <div class="header-time mono" id="clock"></div>
+</header>
+
+<nav>
+  <button class="nav-btn active" onclick="showTab('unos')">[ Unos ]</button>
+  <button class="nav-btn" onclick="showTab('rang')">[ Rang Tablica ]</button>
+  <button class="nav-btn" onclick="showTab('vizual')">[ Vizualizacije ]</button>
+  <button class="nav-btn" onclick="showTab('signali')">[ Signali ]</button>
+  <button class="nav-btn" onclick="showTab('povijest')">[ Povijest ]</button>
+</nav>
+
+<main>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- TAB: UNOS                                               -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div id="tab-unos" class="tab-panel active">
+  <div class="stats-row" id="statsRow"></div>
+  <div class="card">
+    <div class="card-title">Novi unos podataka</div>
+    <div class="form-header">
+      <div>
+        <div class="form-label">Datum (kraj tjedna)</div>
+        <input type="date" id="inputDate">
+      </div>
+      <div>
+        <div class="form-label">Naziv / bilješka (opcionalno)</div>
+        <input type="text" id="inputLabel" placeholder="npr. Tjedan 8 – CPI objava">
+      </div>
+    </div>
+
+    <div class="sector-grid" id="sectorGrid">
+      <div class="grid-header" style="text-align:left">Sektor</div>
+      <div class="grid-header">Tjedno</div>
+      <div class="grid-header">Mjesečno</div>
+      <div class="grid-header">Tromjesečno</div>
+      <div class="grid-header">Polugodišnje</div>
+      <div class="grid-header">Godišnje</div>
+      <div class="grid-header">YTD</div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="saveEntry()">Spremi unos</button>
+      <button class="btn btn-secondary" onclick="clearForm()">Resetiraj formu</button>
+      <button class="btn btn-secondary" onclick="pasteFromClipboard()">Uvezi iz clipboard-a</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Upute za unos</div>
+    <div style="font-size:13px;line-height:1.8;color:var(--text-dim)">
+      <p>1. Idi na <span class="text-amber mono">finviz.com/groups.ashx</span> → odaberi sektor</p>
+      <p>2. Kopiraj performanse za svaki sektor u odgovarajuća polja (tjedno, mjes., 3mj., 6mj., 1god., YTD)</p>
+      <p>3. Unosi su negativni za pad (npr. -2.5), pozitivni za rast (npr. 3.1)</p>
+      <p>4. Podatke spremi jednom tjedno (npr. svaki petak)</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- TAB: RANG TABLICA                                       -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div id="tab-rang" class="tab-panel">
+  <div class="card">
+    <div class="card-title">Rang tablica sektora</div>
+    <div class="flex gap-12 mb-16" style="flex-wrap:wrap;align-items:center">
+      <div>
+        <div class="form-label">Odaberi tjedan</div>
+        <select id="weekSelect" onchange="renderRankTable()" style="width:260px"></select>
+      </div>
+      <div style="margin-top:20px">
+        <button class="btn btn-secondary btn-sm" onclick="sortRankBy='tjedno';sortDir=-1;renderRankTable()">Sortiraj po Tjed.</button>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table id="rankTable">
+        <thead>
+          <tr>
+            <th onclick="rankSort('sektor')">Sektor <span class="sort-arrow" id="sa-sektor"></span></th>
+            <th onclick="rankSort('tjedno')">Tjedno <span class="sort-arrow" id="sa-tjedno"></span></th>
+            <th onclick="rankSort('miesecno')">Miesečno <span class="sort-arrow" id="sa-miesecno"></span></th>
+            <th onclick="rankSort('tromj')">3 Mjes. <span class="sort-arrow" id="sa-tromj"></span></th>
+            <th onclick="rankSort('polugod')">6 Mjes. <span class="sort-arrow" id="sa-polugod"></span></th>
+            <th onclick="rankSort('godisnje')">Godišnje <span class="sort-arrow" id="sa-godisnje"></span></th>
+            <th onclick="rankSort('ytd')">YTD <span class="sort-arrow" id="sa-ytd"></span></th>
+          </tr>
+        </thead>
+        <tbody id="rankBody"></tbody>
+      </table>
+    </div>
+  </div>
+  <!-- HEATMAP -->
+  <div class="card">
+    <div class="card-title">Heatmapa performansi</div>
+    <div id="heatmap"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- TAB: VIZUALIZACIJE                                      -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div id="tab-vizual" class="tab-panel">
+  <div class="card">
+    <div class="card-title">Odabir prikaza</div>
+    <div class="period-tabs" id="periodTabs">
+      <div class="period-tab active" onclick="setVizPeriod('tjedno',this)">Tjedno</div>
+      <div class="period-tab" onclick="setVizPeriod('miesecno',this)">Miesečno</div>
+      <div class="period-tab" onclick="setVizPeriod('tromj',this)">3 Mjes.</div>
+      <div class="period-tab" onclick="setVizPeriod('polugod',this)">6 Mjes.</div>
+      <div class="period-tab" onclick="setVizPeriod('godisnje',this)">Godišnje</div>
+      <div class="period-tab" onclick="setVizPeriod('ytd',this)">YTD</div>
+    </div>
+    <div class="flex gap-12" style="flex-wrap:wrap;align-items:center;margin-bottom:12px">
+      <div>
+        <div class="form-label">Odaberi sektor(e) za trend</div>
+        <select id="sectorSelect" multiple style="height:80px;width:280px;font-size:12px">
+        </select>
+      </div>
+      <div style="margin-top:20px">
+        <button class="btn btn-secondary btn-sm" onclick="renderCharts()">Osvježi</button>
+        <button class="btn btn-secondary btn-sm" onclick="selectAllSectors()">Svi sektori</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="card">
+      <div class="card-title">Trend kroz tjedne</div>
+      <div class="chart-container"><canvas id="trendChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Rang bar – zadnji tjedan</div>
+      <div class="chart-container"><canvas id="barChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Usporedba rokova – zadnji tjedan (Radar)</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+      <div>
+        <div class="form-label" style="margin-bottom:8px">Odaberi sektor za radar</div>
+        <select id="radarSectorSelect" onchange="renderRadar()" style="width:100%"></select>
+      </div>
+      <div></div>
+    </div>
+    <div class="chart-container" style="margin-top:16px"><canvas id="radarChart"></canvas></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- TAB: SIGNALI                                            -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div id="tab-signali" class="tab-panel">
+  <div class="card">
+    <div class="card-title">Parametri signala rotacije</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px">
+      <div>
+        <div class="form-label">Min. tjedno (%) za signal</div>
+        <input type="number" id="sigTjedno" value="1.5" step="0.1">
+      </div>
+      <div>
+        <div class="form-label">Min. miesečno (%) za signal</div>
+        <input type="number" id="sigMjesecno" value="0" step="0.1">
+      </div>
+      <div>
+        <div class="form-label">Maks. godišnje (%) za signal</div>
+        <input type="number" id="sigGodisnje" value="-5" step="0.1">
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="renderSignals()">Analiziraj signale</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">⚠ Signali rotacije – kratkoročni oporavak u dugoročno slabim sektorima</div>
+    <div id="signalOutput"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Rang konzistentnosti – zadnja 4 tjedna</div>
+    <div class="table-wrapper">
+      <table id="consistencyTable">
+        <thead>
+          <tr>
+            <th>Sektor</th>
+            <th>Prj. rang (tj.)</th>
+            <th>Prj. rang (mj.)</th>
+            <th>Prj. rang (3mj.)</th>
+            <th>Trend</th>
+          </tr>
+        </thead>
+        <tbody id="consistencyBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- TAB: POVIJEST                                           -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div id="tab-povijest" class="tab-panel">
+  <div class="card">
+    <div class="card-title">Svi unosi</div>
+    <div class="btn-row mb-16">
+      <button class="btn btn-secondary" onclick="exportJSON()">Izvoz JSON</button>
+      <button class="btn btn-secondary" onclick="exportCSV()">Izvoz CSV</button>
+      <button class="btn btn-secondary" onclick="importJSON()">Uvoz JSON</button>
+      <button class="btn btn-danger" onclick="deleteAll()">Obriši sve podatke</button>
+    </div>
+    <input type="file" id="importFile" accept=".json" style="display:none" onchange="handleImport(event)">
+    <div id="historyList"></div>
+  </div>
+</div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// KONSTANTE
+// ═══════════════════════════════════════════════════════
+const SEKTORI = [
+  'Basic Materials','Communication Services','Consumer Cyclical',
+  'Consumer Defensive','Energy','Financial',
+  'Healthcare','Industrials','Real Estate','Technology','Utilities'
+];
+
+const PERIODI = [
+  { key: 'tjedno',    label: 'Tjedno' },
+  { key: 'miesecno',  label: 'Mjes.' },
+  { key: 'tromj',     label: '3 Mjes.' },
+  { key: 'polugod',   label: '6 Mjes.' },
+  { key: 'godisnje',  label: 'God.' },
+  { key: 'ytd',       label: 'YTD' }
+];
+
+const STORAGE_KEY = 'sektorRotacija_v2';
+let sortRankBy = 'tjedno';
+let sortDir = -1;
+let vizPeriod = 'tjedno';
+let charts = {};
+
+// ═══════════════════════════════════════════════════════
+// STORAGE
+// ═══════════════════════════════════════════════════════
+function getData() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch(e) { return []; }
+}
+function saveData(d) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
+}
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+function init() {
+  // Set default date to Friday
+  const d = document.getElementById('inputDate');
+  const today = new Date();
+  d.value = today.toISOString().split('T')[0];
+
+  buildSectorGrid();
+  buildSectorSelects();
+  updateStats();
+  updateClock();
+  setInterval(updateClock, 1000);
+}
+
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleDateString('hr-HR') + ' ' + now.toLocaleTimeString('hr-HR');
+}
+
+function buildSectorGrid() {
+  const grid = document.getElementById('sectorGrid');
+  // clear existing sector rows
+  const existing = grid.querySelectorAll('.sector-row');
+  existing.forEach(r => r.remove());
+
+  SEKTORI.forEach(s => {
+    const row = document.createElement('div');
+    row.className = 'sector-row';
+    row.innerHTML = `<div class="sector-name">${s}</div>` +
+      PERIODI.map(p =>
+        `<div class="sector-input">
+          <input type="number" step="0.01" placeholder="0.00"
+            id="inp_${sanitize(s)}_${p.key}">
+        </div>`
+      ).join('');
+    grid.appendChild(row);
+  });
+}
+
+function buildSectorSelects() {
+  const sel = document.getElementById('sectorSelect');
+  const rsel = document.getElementById('radarSectorSelect');
+  sel.innerHTML = '';
+  rsel.innerHTML = '';
+  SEKTORI.forEach(s => {
+    const o1 = new Option(s, s);
+    const o2 = new Option(s, s);
+    o1.selected = true;
+    sel.appendChild(o1);
+    rsel.appendChild(o2);
+  });
+}
+
+function sanitize(s) {
+  return s.replace(/[^a-zA-Z]/g, '');
+}
+
+// ═══════════════════════════════════════════════════════
+// SAVE / CLEAR
+// ═══════════════════════════════════════════════════════
+function saveEntry() {
+  const date = document.getElementById('inputDate').value;
+  const label = document.getElementById('inputLabel').value;
+  if (!date) { showToast('Odaberi datum!', true); return; }
+
+  const entry = { id: Date.now(), datum: date, label: label || date, sektori: {} };
+  SEKTORI.forEach(s => {
+    entry.sektori[s] = {};
+    PERIODI.forEach(p => {
+      const val = parseFloat(document.getElementById(`inp_${sanitize(s)}_${p.key}`)?.value);
+      entry.sektori[s][p.key] = isNaN(val) ? null : val;
+    });
+  });
+
+  const data = getData();
+  // check if same date exists
+  const idx = data.findIndex(e => e.datum === date);
+  if (idx >= 0) {
+    if (!confirm('Postoji unos za ovaj datum. Zamijeni?')) return;
+    data[idx] = entry;
+  } else {
+    data.push(entry);
+  }
+  data.sort((a,b) => a.datum < b.datum ? -1 : 1);
+  saveData(data);
+  showToast('Unos spremljen!');
+  updateStats();
+  clearForm();
+}
+
+function clearForm() {
+  SEKTORI.forEach(s => {
+    PERIODI.forEach(p => {
+      const el = document.getElementById(`inp_${sanitize(s)}_${p.key}`);
+      if (el) el.value = '';
+    });
+  });
+  document.getElementById('inputLabel').value = '';
+}
+
+function pasteFromClipboard() {
+  showToast('Uvoz iz clipboard-a: nije podržan u svim browserima. Koristite ručni unos.', true);
+}
+
+// ═══════════════════════════════════════════════════════
+// STATS (homepage)
+// ═══════════════════════════════════════════════════════
+function updateStats() {
+  const data = getData();
+  const row = document.getElementById('statsRow');
+  if (data.length === 0) { row.innerHTML = ''; return; }
+
+  const last = data[data.length - 1];
+  const vals = Object.values(last.sektori).map(v => v.tjedno).filter(v => v !== null);
+  const best = SEKTORI.reduce((a,b) =>
+    (last.sektori[a]?.tjedno ?? -999) > (last.sektori[b]?.tjedno ?? -999) ? a : b);
+  const worst = SEKTORI.reduce((a,b) =>
+    (last.sektori[a]?.tjedno ?? 999) < (last.sektori[b]?.tjedno ?? 999) ? a : b);
+
+  row.innerHTML = `
+    <div class="stat-card"><div class="stat-value">${data.length}</div><div class="stat-label">Tjednih unosa</div></div>
+    <div class="stat-card"><div class="stat-value text-amber">${last.datum}</div><div class="stat-label">Zadnji unos</div></div>
+    <div class="stat-card">
+      <div class="stat-value" style="color:var(--green);font-size:16px">${best}</div>
+      <div class="stat-label">Tjed. lider (${pct(last.sektori[best]?.tjedno)})</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" style="color:var(--red);font-size:16px">${worst}</div>
+      <div class="stat-label">Tjed. autsajder (${pct(last.sektori[worst]?.tjedno)})</div>
+    </div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════════
+// RANK TABLE
+// ═══════════════════════════════════════════════════════
+function populateWeekSelect() {
+  const data = getData();
+  const sel = document.getElementById('weekSelect');
+  sel.innerHTML = '';
+  if (data.length === 0) return;
+  [...data].reverse().forEach(e => {
+    const o = new Option(`${e.datum}  ${e.label !== e.datum ? '– ' + e.label : ''}`, e.id);
+    sel.appendChild(o);
+  });
+}
+
+function renderRankTable() {
+  const data = getData();
+  const id = parseInt(document.getElementById('weekSelect').value);
+  const entry = data.find(e => e.id === id);
+  if (!entry) { document.getElementById('rankBody').innerHTML = '<tr><td colspan="7" class="empty-state">Nema podataka</td></tr>'; return; }
+
+  let rows = SEKTORI.map(s => ({
+    sektor: s,
+    tjedno: entry.sektori[s]?.tjedno ?? null,
+    miesecno: entry.sektori[s]?.miesecno ?? null,
+    tromj: entry.sektori[s]?.tromj ?? null,
+    polugod: entry.sektori[s]?.polugod ?? null,
+    godisnje: entry.sektori[s]?.godisnje ?? null,
+    ytd: entry.sektori[s]?.ytd ?? null,
+  }));
+
+  rows.sort((a,b) => {
+    const va = a[sortRankBy] ?? -9999;
+    const vb = b[sortRankBy] ?? -9999;
+    return sortDir * (va - vb);
+  });
+
+  // compute rank for signals
+  const ranked = [...rows].sort((a,b) => (b.tjedno??-9999) - (a.tjedno??-9999));
+  const rankMap = {};
+  ranked.forEach((r,i) => rankMap[r.sektor] = i+1);
+
+  const isSignal = r => {
+    const sTj = parseFloat(document.getElementById('sigTjedno')?.value ?? 1.5);
+    const sMj = parseFloat(document.getElementById('sigMjesecno')?.value ?? 0);
+    const sGod = parseFloat(document.getElementById('sigGodisnje')?.value ?? -5);
+    return (r.tjedno ?? 0) >= sTj &&
+           (r.miesecno ?? 0) >= sMj &&
+           ((r.godisnje ?? 0) <= sGod || (r.polugod ?? 0) <= sGod);
+  };
+
+  const body = document.getElementById('rankBody');
+  body.innerHTML = rows.map((r, i) => {
+    const rk = rankMap[r.sektor];
+    const rkBadge = rk <= 3 ? `<span class="rank rank-${rk}">${rk}</span>` : `<span style="color:var(--text-dim);font-size:11px;margin-right:8px">${rk}</span>`;
+    const signal = isSignal(r) ? '<span class="signal-badge">⚡ SIGNAL</span>' : '';
+    return `<tr class="${isSignal(r) ? 'signal-row' : ''}">
+      <td>${rkBadge}${r.sektor}${signal}</td>
+      <td>${valCell(r.tjedno)}</td>
+      <td>${valCell(r.miesecno)}</td>
+      <td>${valCell(r.tromj)}</td>
+      <td>${valCell(r.polugod)}</td>
+      <td>${valCell(r.godisnje)}</td>
+      <td>${valCell(r.ytd)}</td>
+    </tr>`;
+  }).join('');
+
+  // update sort arrows
+  document.querySelectorAll('[id^=sa-]').forEach(el => el.textContent = '');
+  const arrow = sortDir === 1 ? '↑' : '↓';
+  const el = document.getElementById(`sa-${sortRankBy}`);
+  if (el) el.textContent = arrow;
+
+  renderHeatmap(entry);
+}
+
+function rankSort(col) {
+  if (sortRankBy === col) sortDir *= -1;
+  else { sortRankBy = col; sortDir = -1; }
+  renderRankTable();
+}
+
+function renderHeatmap(entry) {
+  const hm = document.getElementById('heatmap');
+  let html = '<div class="hm-header" style="text-align:left">Sektor</div>';
+  PERIODI.forEach(p => html += `<div class="hm-header">${p.label}</div>`);
+
+  SEKTORI.forEach(s => {
+    html += `<div class="hm-label">${s.replace(' ','<br>')}</div>`;
+    PERIODI.forEach(p => {
+      const v = entry.sektori[s]?.[p.key];
+      html += `<div class="hm-cell" style="${hmColor(v)}" title="${p.label}: ${pct(v)}">${pct(v)}</div>`;
+    });
+  });
+  hm.innerHTML = html;
+}
+
+function hmColor(v) {
+  if (v === null || v === undefined) return 'background:#111820;color:var(--text-dim)';
+  if (v > 5)  return 'background:#064e3b;color:#6ee7b7';
+  if (v > 2)  return 'background:#065f46;color:#34d399';
+  if (v > 0)  return 'background:#0f3d2b;color:#86efac';
+  if (v > -2) return 'background:#3d1515;color:#fca5a5';
+  if (v > -5) return 'background:#541a1a;color:#f87171';
+  return 'background:#7f1d1d;color:#fecaca';
+}
+
+// ═══════════════════════════════════════════════════════
+// CHARTS
+// ═══════════════════════════════════════════════════════
+const COLORS = [
+  '#f59e0b','#38bdf8','#22d3a0','#f43f5e','#a78bfa',
+  '#fb923c','#67e8f9','#86efac','#fda4af','#c4b5fd',
+  '#fde68a'
+];
+
+function setVizPeriod(p, el) {
+  vizPeriod = p;
+  document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderCharts();
+}
+
+function selectAllSectors() {
+  const sel = document.getElementById('sectorSelect');
+  for (let o of sel.options) o.selected = true;
+  renderCharts();
+}
+
+function renderCharts() {
+  const data = getData();
+  if (data.length === 0) return;
+
+  const sel = document.getElementById('sectorSelect');
+  const chosen = Array.from(sel.selectedOptions).map(o => o.value);
+  const labels = data.map(e => e.datum.slice(5)); // MM-DD
+
+  // Destroy old charts
+  Object.values(charts).forEach(c => c && c.destroy());
+  charts = {};
+
+  // Trend line chart
+  charts.trend = new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: chosen.map((s,i) => ({
+        label: s,
+        data: data.map(e => e.sektori[s]?.[vizPeriod] ?? null),
+        borderColor: COLORS[SEKTORI.indexOf(s) % COLORS.length],
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        pointRadius: 3,
+        spanGaps: true,
+        tension: 0.3
+      }))
+    },
+    options: chartOptions(`Performansa – ${PERIODI.find(p=>p.key===vizPeriod)?.label}`)
+  });
+
+  // Bar chart – last entry
+  const last = data[data.length - 1];
+  const barVals = SEKTORI.map(s => last.sektori[s]?.[vizPeriod] ?? 0);
+  charts.bar = new Chart(document.getElementById('barChart'), {
+    type: 'bar',
+    data: {
+      labels: SEKTORI.map(s => s.replace(' ','\n')),
+      datasets: [{
+        data: barVals,
+        backgroundColor: barVals.map(v => v >= 0 ? 'rgba(34,211,160,0.7)' : 'rgba(244,63,94,0.7)'),
+        borderColor: barVals.map(v => v >= 0 ? '#22d3a0' : '#f43f5e'),
+        borderWidth: 1
+      }]
+    },
+    options: barOptions()
+  });
+
+  renderRadar();
+}
+
+function renderRadar() {
+  const data = getData();
+  if (data.length === 0) return;
+  const last = data[data.length - 1];
+  const s = document.getElementById('radarSectorSelect').value;
+  if (!s) return;
+
+  if (charts.radar) charts.radar.destroy();
+  charts.radar = new Chart(document.getElementById('radarChart'), {
+    type: 'radar',
+    data: {
+      labels: PERIODI.map(p => p.label),
+      datasets: [{
+        label: s,
+        data: PERIODI.map(p => last.sektori[s]?.[p.key] ?? 0),
+        borderColor: '#f59e0b',
+        backgroundColor: 'rgba(245,158,11,0.15)',
+        pointBackgroundColor: '#f59e0b',
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#94a3b8', font: { family: 'JetBrains Mono', size: 11 } } } },
+      scales: {
+        r: {
+          grid: { color: '#1e2a38' },
+          angleLines: { color: '#1e2a38' },
+          ticks: { color: '#475569', backdropColor: 'transparent', font: { size: 10 } },
+          pointLabels: { color: '#94a3b8', font: { size: 11, family: 'JetBrains Mono' } }
+        }
+      }
+    }
+  });
+}
+
+function chartOptions(title) {
+  return {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { labels: { color: '#94a3b8', font: { family: 'JetBrains Mono', size: 10 }, boxWidth: 12 } },
+      title: { display: false },
+      tooltip: {
+        backgroundColor: '#161e28',
+        borderColor: '#1e2a38',
+        borderWidth: 1,
+        titleColor: '#f1f5f9',
+        bodyColor: '#94a3b8',
+        bodyFont: { family: 'JetBrains Mono', size: 12 },
+        callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.raw?.toFixed(2) ?? 'N/A'}%` }
+      }
+    },
+    scales: {
+      x: {
+        grid: { color: '#1e2a38' },
+        ticks: { color: '#475569', font: { family: 'JetBrains Mono', size: 10 } }
+      },
+      y: {
+        grid: { color: '#1e2a38' },
+        ticks: { color: '#475569', font: { family: 'JetBrains Mono', size: 10 }, callback: v => v + '%' }
+      }
+    }
+  };
+}
+
+function barOptions() {
+  return {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#161e28',
+        borderColor: '#1e2a38',
+        borderWidth: 1,
+        callbacks: { label: ctx => ` ${ctx.raw?.toFixed(2)}%` }
+      }
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { color: '#475569', font: { family: 'JetBrains Mono', size: 9 } }
+      },
+      y: {
+        grid: { color: '#1e2a38' },
+        ticks: { color: '#475569', font: { family: 'JetBrains Mono', size: 10 }, callback: v => v + '%' }
+      }
+    }
+  };
+}
+
+// ═══════════════════════════════════════════════════════
+// SIGNALS
+// ═══════════════════════════════════════════════════════
+function renderSignals() {
+  const data = getData();
+  if (data.length === 0) { document.getElementById('signalOutput').innerHTML = '<div class="empty-state">Nema podataka</div>'; return; }
+
+  const sTj   = parseFloat(document.getElementById('sigTjedno').value);
+  const sMj   = parseFloat(document.getElementById('sigMjesecno').value);
+  const sGod  = parseFloat(document.getElementById('sigGodisnje').value);
+
+  const last = data[data.length - 1];
+  const signals = [];
+
+  SEKTORI.forEach(s => {
+    const sec = last.sektori[s];
+    if (!sec) return;
+    const tj = sec.tjedno ?? 0;
+    const mj = sec.miesecno ?? 0;
+    const god = sec.godisnje ?? 0;
+    const pol = sec.polugod ?? 0;
+
+    if (tj >= sTj && mj >= sMj && (god <= sGod || pol <= sGod)) {
+      signals.push({ sektor: s, tj, mj, god, pol, ytd: sec.ytd ?? 0, tromj: sec.tromj ?? 0 });
+    }
+  });
+
+  const out = document.getElementById('signalOutput');
+  if (signals.length === 0) {
+    out.innerHTML = '<div class="empty-state" style="color:var(--green)">✓ Nema aktivnih signala rotacije za zadane parametre</div>';
+  } else {
+    out.innerHTML = signals.map(sig => `
+      <div style="background:var(--signal-bg);border:1px solid rgba(251,146,60,0.2);border-radius:6px;padding:16px;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+          <span style="color:var(--signal);font-size:18px;font-weight:700;font-family:'Rajdhani',sans-serif">${sig.sektor}</span>
+          <span class="signal-badge">⚡ DEAD CAT / BEAR TRAP?</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;font-family:'JetBrains Mono',monospace;font-size:12px">
+          <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">TJEDNO</div><div style="color:var(--green)">${pct(sig.tj)}</div></div>
+          <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">MJES.</div><div style="color:var(--green)">${pct(sig.mj)}</div></div>
+          <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">3 MJES.</div><div style="${sig.tromj >= 0 ? 'color:var(--green)' : 'color:var(--red)'}">${pct(sig.tromj)}</div></div>
+          <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">6 MJES.</div><div style="${sig.pol >= 0 ? 'color:var(--green)' : 'color:var(--red)'}">${pct(sig.pol)}</div></div>
+          <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">GOD.</div><div style="${sig.god >= 0 ? 'color:var(--green)' : 'color:var(--red)'}">${pct(sig.god)}</div></div>
+          <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">YTD</div><div style="${sig.ytd >= 0 ? 'color:var(--green)' : 'color:var(--red)'}">${pct(sig.ytd)}</div></div>
+        </div>
+        <div style="margin-top:10px;font-size:11px;color:var(--text-dim)">
+          ⚠ Kratkoročni impuls u dugoročno slabom sektoru – pazi na lažni proboj / kratkotrajna rotacija
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Consistency table
+  renderConsistency(data);
+}
+
+function renderConsistency(data) {
+  const last4 = data.slice(-4);
+  if (last4.length < 2) return;
+
+  const body = document.getElementById('consistencyBody');
+  body.innerHTML = SEKTORI.map(s => {
+    const tjRanks = last4.map(e => {
+      const vals = SEKTORI.map(x => e.sektori[x]?.tjedno ?? -9999);
+      vals.sort((a,b) => b-a);
+      return vals.indexOf(e.sektori[s]?.tjedno ?? -9999) + 1;
+    });
+    const mjRanks = last4.map(e => {
+      const vals = SEKTORI.map(x => e.sektori[x]?.miesecno ?? -9999);
+      vals.sort((a,b) => b-a);
+      return vals.indexOf(e.sektori[s]?.miesecno ?? -9999) + 1;
+    });
+    const tRanks = last4.map(e => {
+      const vals = SEKTORI.map(x => e.sektori[x]?.tromj ?? -9999);
+      vals.sort((a,b) => b-a);
+      return vals.indexOf(e.sektori[s]?.tromj ?? -9999) + 1;
+    });
+
+    const avgTj = avg(tjRanks);
+    const avgMj = avg(mjRanks);
+    const avgT  = avg(tRanks);
+
+    // trend: is weekly rank improving?
+    const trend = tjRanks.length >= 2
+      ? tjRanks[tjRanks.length-1] < tjRanks[0] ? '↑ raste' : tjRanks[tjRanks.length-1] > tjRanks[0] ? '↓ pada' : '→ stabilno'
+      : '–';
+    const trendColor = trend.includes('raste') ? 'var(--green)' : trend.includes('pada') ? 'var(--red)' : 'var(--text-dim)';
+
+    return `<tr>
+      <td>${s}</td>
+      <td>${avgTj.toFixed(1)}</td>
+      <td>${avgMj.toFixed(1)}</td>
+      <td>${avgT.toFixed(1)}</td>
+      <td style="color:${trendColor};font-weight:600">${trend}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// HISTORY
+// ═══════════════════════════════════════════════════════
+function renderHistory() {
+  const data = getData();
+  const list = document.getElementById('historyList');
+  if (data.length === 0) {
+    list.innerHTML = '<div class="empty-state">Nema unosa</div>';
+    return;
+  }
+
+  list.innerHTML = [...data].reverse().map(e => `
+    <div class="history-item" onclick="loadEntry(${e.id})">
+      <div>
+        <div class="history-date">${e.datum}</div>
+        <div class="history-label">${e.label}</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();loadEntry(${e.id})">Uredi</button>
+        <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteEntry(${e.id})">Briši</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function loadEntry(id) {
+  const entry = getData().find(e => e.id === id);
+  if (!entry) return;
+  document.getElementById('inputDate').value = entry.datum;
+  document.getElementById('inputLabel').value = entry.label !== entry.datum ? entry.label : '';
+  SEKTORI.forEach(s => {
+    PERIODI.forEach(p => {
+      const el = document.getElementById(`inp_${sanitize(s)}_${p.key}`);
+      if (el) el.value = entry.sektori[s]?.[p.key] ?? '';
+    });
+  });
+  showTab('unos');
+  showToast(`Unos ${entry.datum} učitan za uređivanje`);
+}
+
+function deleteEntry(id) {
+  if (!confirm('Obriši ovaj unos?')) return;
+  const data = getData().filter(e => e.id !== id);
+  saveData(data);
+  renderHistory();
+  updateStats();
+  showToast('Unos obrisan');
+}
+
+function deleteAll() {
+  if (!confirm('Obriši SVE podatke? Ova radnja se ne može poništiti!')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  renderHistory();
+  updateStats();
+  showToast('Svi podaci obrisani', true);
+}
+
+// ═══════════════════════════════════════════════════════
+// EXPORT / IMPORT
+// ═══════════════════════════════════════════════════════
+function exportJSON() {
+  const data = getData();
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `sektor_rotacija_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  showToast('JSON izvezen');
+}
+
+function exportCSV() {
+  const data = getData();
+  const header = ['datum','label','sektor','tjedno','miesecno','tromj','polugod','godisnje','ytd'];
+  const rows = [header.join(',')];
+  data.forEach(e => {
+    SEKTORI.forEach(s => {
+      const sec = e.sektori[s] || {};
+      rows.push([e.datum, `"${e.label}"`, `"${s}"`,
+        sec.tjedno??'', sec.miesecno??'', sec.tromj??'',
+        sec.polugod??'', sec.godisnje??'', sec.ytd??''
+      ].join(','));
+    });
+  });
+  const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `sektor_rotacija_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  showToast('CSV izvezen');
+}
+
+function importJSON() { document.getElementById('importFile').click(); }
+
+function handleImport(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (!Array.isArray(imported)) throw new Error('Neispravan format');
+      const merged = getData();
+      imported.forEach(entry => {
+        const idx = merged.findIndex(m => m.id === entry.id || m.datum === entry.datum);
+        if (idx >= 0) merged[idx] = entry;
+        else merged.push(entry);
+      });
+      merged.sort((a,b) => a.datum < b.datum ? -1 : 1);
+      saveData(merged);
+      renderHistory();
+      updateStats();
+      showToast(`Uvezeno ${imported.length} unosa`);
+    } catch(err) {
+      showToast('Greška pri uvozu: ' + err.message, true);
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+// ═══════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════
+function pct(v) {
+  if (v === null || v === undefined) return '–';
+  const s = v >= 0 ? '+' : '';
+  return s + parseFloat(v).toFixed(2) + '%';
+}
+
+function valCell(v) {
+  if (v === null || v === undefined) return '<span class="val-zero">–</span>';
+  const cls = v > 3 ? 'val-pos2' : v > 0 ? 'val-pos1' : v < -3 ? 'val-neg2' : 'val-neg1';
+  const s = v >= 0 ? '+' : '';
+  return `<span class="${cls}">${s}${parseFloat(v).toFixed(2)}%</span>`;
+}
+
+function avg(arr) {
+  const valid = arr.filter(v => v !== null && !isNaN(v));
+  return valid.length ? valid.reduce((a,b) => a+b, 0) / valid.length : 0;
+}
+
+function showToast(msg, error = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (error ? ' error' : '');
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ═══════════════════════════════════════════════════════
+// TAB NAVIGATION
+// ═══════════════════════════════════════════════════════
+function showTab(tab) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => {
+    if (b.getAttribute('onclick')?.includes(`'${tab}'`)) b.classList.add('active');
+  });
+
+  if (tab === 'rang') { populateWeekSelect(); renderRankTable(); }
+  if (tab === 'vizual') { renderCharts(); }
+  if (tab === 'signali') { renderSignals(); }
+  if (tab === 'povijest') { renderHistory(); }
+}
+
+// ═══════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════
+init();
+</script>
+</body>
+</html>
