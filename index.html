@@ -516,6 +516,8 @@
       <p>2. Kopiraj performanse za svaki sektor u odgovarajuća polja (tjedno, mjes., 3mj., 6mj., 1god., YTD)</p>
       <p>3. Unosi su negativni za pad (npr. -2.5), pozitivni za rast (npr. 3.1)</p>
       <p>4. Podatke spremi jednom tjedno (npr. svaki petak)</p>
+      <p>5. Brzi unos: <span class="mono">Ctrl/Cmd + S</span> sprema, <span class="mono">Alt + R</span> resetira formu</p>
+      <p>6. Clipboard import podržava retke: <span class="mono">Sektor 1.2 3.4 -2.1 5.0 -4.2 2.7</span> (ili format s dodatnim kolonama)</p>
     </div>
   </div>
 </div>
@@ -725,6 +727,7 @@ function init() {
 
   buildSectorGrid();
   buildSectorSelects();
+  bindShortcuts();
   updateStats();
   updateClock();
   setInterval(updateClock, 1000);
@@ -779,7 +782,8 @@ function sanitize(s) {
 // ═══════════════════════════════════════════════════════
 function saveEntry() {
   const date = document.getElementById('inputDate').value;
-  const label = document.getElementById('inputLabel').value;
+  const rawLabel = document.getElementById('inputLabel').value;
+  const label = normalizeLabel(rawLabel);
   if (!date) { showToast('Odaberi datum!', true); return; }
 
   const entry = { id: Date.now(), datum: date, label: label || date, sektori: {} };
@@ -817,8 +821,101 @@ function clearForm() {
   document.getElementById('inputLabel').value = '';
 }
 
-function pasteFromClipboard() {
-  showToast('Uvoz iz clipboard-a: nije podržan u svim browserima. Koristite ručni unos.', true);
+async function pasteFromClipboard() {
+  let text = '';
+
+  if (navigator.clipboard?.readText) {
+    try {
+      text = await navigator.clipboard.readText();
+    } catch (err) {
+      showToast('Clipboard je blokiran. Zalijepi podatke ručno u dijalog.', true);
+    }
+  }
+
+  if (!text) {
+    text = prompt('Zalijepi podatke (jedan sektor po retku) i potvrdi:') || '';
+  }
+  if (!text.trim()) return;
+
+  const result = parseClipboardData(text);
+  if (result.imported === 0) {
+    showToast('Nisam prepoznao format. Očekujem retke s nazivom sektora i 6 postotaka.', true);
+    return;
+  }
+
+  const warning = result.skipped > 0 ? ` (preskočeno: ${result.skipped})` : '';
+  showToast(`Uvezeno ${result.imported} sektora iz clipboard-a${warning}`);
+}
+
+function parseClipboardData(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  let imported = 0;
+  let skipped = 0;
+
+  lines.forEach(line => {
+    const sector = findSectorInLine(line);
+    if (!sector) { skipped += 1; return; }
+
+    const values = extractPeriodValues(line);
+    if (values.length !== PERIODI.length) { skipped += 1; return; }
+
+    PERIODI.forEach((p, i) => {
+      const el = document.getElementById(`inp_${sanitize(sector)}_${p.key}`);
+      if (!el) return;
+      el.value = values[i].toFixed(2);
+    });
+    imported += 1;
+  });
+
+  return { imported, skipped };
+}
+
+function extractPeriodValues(line) {
+  const nums = line.match(/[-+]?\d+(?:[.,]\d+)?%?/g) || [];
+  const parsed = nums
+    .map(n => parseFloat(n.replace('%', '').replace(',', '.')))
+    .filter(v => Number.isFinite(v) && Math.abs(v) <= 500);
+
+  if (parsed.length < PERIODI.length) return [];
+  return parsed.slice(-PERIODI.length);
+}
+
+function findSectorInLine(line) {
+  const normalizedLine = normalizeSectorName(line);
+  return SEKTORI.find(sektor => normalizedLine.includes(normalizeSectorName(sektor))) || null;
+}
+
+function normalizeSectorName(value) {
+  return value
+    .toLowerCase()
+    .replace(/services/g, 'service')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function bindShortcuts() {
+  document.addEventListener('keydown', (event) => {
+    const activeUnos = document.getElementById('tab-unos')?.classList.contains('active');
+    if (!activeUnos) return;
+
+    const target = event.target;
+    const typing = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+
+    const isMac = navigator.platform.toUpperCase().includes('MAC');
+    const cmdOrCtrl = isMac ? event.metaKey : event.ctrlKey;
+
+    if (cmdOrCtrl && event.key.toLowerCase() === 's') {
+      event.preventDefault();
+      saveEntry();
+      return;
+    }
+
+    if (!typing && event.altKey && event.key.toLowerCase() === 'r') {
+      event.preventDefault();
+      clearForm();
+      showToast('Forma resetirana');
+    }
+  });
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1228,18 +1325,44 @@ function renderHistory() {
     return;
   }
 
-  list.innerHTML = [...data].reverse().map(e => `
-    <div class="history-item" onclick="loadEntry(${e.id})">
-      <div>
-        <div class="history-date">${e.datum}</div>
-        <div class="history-label">${e.label}</div>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();loadEntry(${e.id})">Uredi</button>
-        <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteEntry(${e.id})">Briši</button>
-      </div>
-    </div>
-  `).join('');
+  list.innerHTML = '';
+  [...data].reverse().forEach(e => {
+    const item = document.createElement('div');
+    item.className = 'history-item';
+    item.addEventListener('click', () => loadEntry(e.id));
+
+    const meta = document.createElement('div');
+    const date = document.createElement('div');
+    date.className = 'history-date';
+    date.textContent = e.datum;
+    const label = document.createElement('div');
+    label.className = 'history-label';
+    label.textContent = e.label;
+    meta.appendChild(date);
+    meta.appendChild(label);
+
+    const actions = document.createElement('div');
+    actions.style.display = 'flex';
+    actions.style.gap = '8px';
+    actions.style.alignItems = 'center';
+
+    const editBtn = document.createElement('button');
+    editBtn.className = 'btn btn-secondary btn-sm';
+    editBtn.textContent = 'Uredi';
+    editBtn.addEventListener('click', ev => { ev.stopPropagation(); loadEntry(e.id); });
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn btn-danger btn-sm';
+    delBtn.textContent = 'Briši';
+    delBtn.addEventListener('click', ev => { ev.stopPropagation(); deleteEntry(e.id); });
+
+    actions.appendChild(editBtn);
+    actions.appendChild(delBtn);
+
+    item.appendChild(meta);
+    item.appendChild(actions);
+    list.appendChild(item);
+  });
 }
 
 function loadEntry(id) {
@@ -1319,22 +1442,57 @@ function handleImport(event) {
       const imported = JSON.parse(e.target.result);
       if (!Array.isArray(imported)) throw new Error('Neispravan format');
       const merged = getData();
+      let valid = 0;
+      let skipped = 0;
+
       imported.forEach(entry => {
-        const idx = merged.findIndex(m => m.id === entry.id || m.datum === entry.datum);
-        if (idx >= 0) merged[idx] = entry;
-        else merged.push(entry);
+        const normalized = normalizeImportedEntry(entry);
+        if (!normalized) { skipped += 1; return; }
+
+        const idx = merged.findIndex(m => m.id === normalized.id || m.datum === normalized.datum);
+        if (idx >= 0) merged[idx] = normalized;
+        else merged.push(normalized);
+        valid += 1;
       });
+
       merged.sort((a,b) => a.datum < b.datum ? -1 : 1);
       saveData(merged);
       renderHistory();
       updateStats();
-      showToast(`Uvezeno ${imported.length} unosa`);
+      const skipInfo = skipped ? ` (preskočeno: ${skipped})` : '';
+      showToast(`Uvezeno ${valid} unosa${skipInfo}`);
     } catch(err) {
       showToast('Greška pri uvozu: ' + err.message, true);
     }
   };
   reader.readAsText(file);
   event.target.value = '';
+}
+
+function normalizeImportedEntry(entry) {
+  if (!entry || typeof entry !== 'object') return null;
+  if (typeof entry.datum !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(entry.datum)) return null;
+
+  const id = Number.isFinite(Number(entry.id)) ? Number(entry.id) : Date.now() + Math.floor(Math.random() * 1000);
+  const label = normalizeLabel(entry.label || entry.datum) || entry.datum;
+
+  const sektori = {};
+  for (const sektor of SEKTORI) {
+    const sec = entry.sektori?.[sektor] || {};
+    sektori[sektor] = {};
+    for (const period of PERIODI) {
+      const raw = sec[period.key];
+      const value = raw === null || raw === undefined || raw === '' ? null : Number(raw);
+      sektori[sektor][period.key] = Number.isFinite(value) ? value : null;
+    }
+  }
+
+  return { id, datum: entry.datum, label, sektori };
+}
+
+function normalizeLabel(value) {
+  const raw = String(value ?? '').replace(/\s+/g, ' ').trim();
+  return raw.slice(0, 120);
 }
 
 // ═══════════════════════════════════════════════════════
